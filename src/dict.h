@@ -20,6 +20,8 @@
 #define REVERSE_MAP_DICT_KEY_INDEX 1
 #define REVERSE_MAP_DICT_VALUE_INDEX 0
 
+namespace StemCell {
+
 class Dict {
 public:
     typedef std::map<std::string, std::map<int64_t, double> > SIDMapDict;
@@ -437,4 +439,5 @@ static inline std::map<T1,std::vector<T2> > *buildVectorValueTypeMapDict(const s
     return _s_map;
 }
 }; // class Dict
+} // end namespace StemCell
 #endif

@@ -8,6 +8,8 @@
 #include "async_task_context.h"
 #include "spinlock.h"
 
+namespace StemCell {
+
 class AsyncTask {
 public:
     enum Status {
@@ -65,4 +67,6 @@ private:
     Spinlock _lock;
     std::shared_ptr<AsyncTaskContext> context;
 };
+
+} // end namespace StemCell
 #endif

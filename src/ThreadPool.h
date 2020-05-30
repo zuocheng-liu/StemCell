@@ -11,6 +11,7 @@
 #include <functional>
 #include <stdexcept>
 
+namespace StemCell {
 class ThreadPool {
 public:
     ThreadPool(size_t);
@@ -95,4 +96,5 @@ inline ThreadPool::~ThreadPool()
         worker.join();
 }
 
+} // end namespace StemCell
 #endif

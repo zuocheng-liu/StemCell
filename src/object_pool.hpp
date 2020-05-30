@@ -8,6 +8,8 @@
 #include <butil/logging.h>
 #include "spinlock.h"
 
+namespace StemCell {
+
 template<class T>
 class ObjectPool {
 public: 
@@ -62,4 +64,5 @@ private:
     Spinlock _lock;
 };
 
+} // end namespace StemCell
 #endif

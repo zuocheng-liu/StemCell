@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <exception>
 
+namespace StemCell {
+
 class ProfilerItem {
 public:
     enum ProfilerItemType {
@@ -136,4 +138,5 @@ private :
     std::map<int64_t, ProfilerItem> _info;
 };
 
+} // end namespace StemCell
 #endif

@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 
+namespace StemCell {
+
 class NetUtils {
 public:
     static bool GetHostInfo(std::string& hostName, std::string& Ip) {
@@ -27,4 +29,5 @@ public:
     }
 };
 
+} // end namespace StemCell
 #endif

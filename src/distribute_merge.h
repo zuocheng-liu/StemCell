@@ -1,5 +1,8 @@
 #ifndef DISTRIBUTE_MERGE
 #define DISTRIBUTE_MERGE
+
+namespace StemCell {
+
 class DistributeMerge {
 private:
     DistributeMerge() {}
@@ -8,4 +11,5 @@ private:
 protected:
 
 };
+} // end namespace StemCell
 #endif

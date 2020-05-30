@@ -1,5 +1,5 @@
 #include "timer_event.h"
-
+using namespace StemCell;
 int64_t TimerEvent::CurrUniqueId = 0;
 
 TimerEvent::TimerEvent(int32_t timeout, void (*func)(void*), void *args, Timer *timer) 

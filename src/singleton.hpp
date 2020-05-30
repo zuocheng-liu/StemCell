@@ -5,6 +5,8 @@
 #include <cassert>
 #include <mutex>
 
+namespace StemCell {
+
 template<class T>
 class Singleton {
 public:
@@ -77,4 +79,5 @@ private:
 template<class T>
 thread_local T* ThreadLocalSingleton<T>::instance = nullptr;
 
+} // end namespace StemCell
 #endif

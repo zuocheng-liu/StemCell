@@ -1,6 +1,7 @@
 #ifndef STRING_UTILS_H
 #define STRING_UTILS_H
 
+namespace StemCell {
 class StringUtils {
 public:
     /*
@@ -21,4 +22,5 @@ public:
     }
 };
 
+} // end namespace StemCell
 #endif

@@ -2,9 +2,8 @@
 #define SPINLOCK_H
 
 #include <atomic>
-#include <utils/vlog/loghelper.h>
 
-using namespace vlog;
+namespace StemCell {
 
 class Spinlock {
 public:
@@ -45,4 +44,5 @@ private :
     int64_t id;
     int32_t wait_count;
 };
+} // end namespace StemCell
 #endif

@@ -12,7 +12,8 @@
 #include <time.h>
 #include <utils/vlog/loghelper.h>
 
-using namespace vlog;
+
+namespace StemCell {
 
 
 /**
@@ -265,4 +266,5 @@ class HotSwitchDict {
         bool   m_inited;
         std::string m_logName;
 };
+} // end namespace StemCell
 #endif // _HOT_SWITCH_DICT_H_

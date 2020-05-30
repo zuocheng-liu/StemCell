@@ -15,7 +15,7 @@
 #include "ThreadPool.h"
 #include "profiler.h"
 
-using namespace vlog;
+namespace StemCell {
 
 class AsyncTaskManager {
 public:

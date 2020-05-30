@@ -3,7 +3,6 @@
 
 #include <event2/event.h>
 #include <event2/dns.h>
-#include <utils/vlog/loghelper.h>
 #include <mutex>
 #include <queue>
 #include <map>
@@ -11,7 +10,8 @@
 #include <atomic>
 #include "spinlock.h"
 
-using namespace vlog;
+namespace StemCell {
+
 class Timer;
 
 struct TimerEvent {
@@ -131,4 +131,5 @@ private:
     struct event *keep_ev; 
 };
 
+} // end namespace StemCell
 #endif
