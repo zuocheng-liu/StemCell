@@ -16,7 +16,7 @@ public:
             if (++i > wait_count) {
                 ++j;
                 if (j > 3) {
-                    VLOG_APP(WARNING) << "spinlock "<< id << "! yield times:" << j;
+                    // VLOG_APP(WARNING) << "spinlock "<< id << "! yield times:" << j;
                 }
                 sched_yield();
                 i = 0;

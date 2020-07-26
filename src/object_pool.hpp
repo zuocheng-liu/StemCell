@@ -33,6 +33,12 @@ public:
             return instance;
         }
     }
+    
+    T& createInstance() {
+        return *getSharedPtr();
+    } 
+
+    std::shared_ptr<T> createObject() { return getSharedPtr(); }
 
     void recycle(std::shared_ptr<T> ptr) {
         if (!ptr) {
