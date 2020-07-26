@@ -4,12 +4,9 @@
 #include <vector>
 #include <queue>
 #include <memory>
-#include <mutex>
-#include <thread>
 #include <map>
 #include <future>
 #include <functional>
-#include <stdexcept>
 
 #include <time.h>
 #include <sys/epoll.h>
@@ -26,7 +23,8 @@ struct TimerTask {
     struct itimerspec expect_time;
 };
 
-typedef std::shared_ptr<TimerTask> TimerTaskPtr;
+typedef std::shared_ptr<TimerTask> TimerTaskSharedPtr;
+typedef TimerTask* TimerTaskPtr;
 typedef ObjectPool<TimerTask> TimerTaskPool;
 
 
@@ -50,22 +48,24 @@ private:
     
     void loop(); 
     void custTimerTask();   
-    void addTimerTask(TimerTaskPtr& task);
-    void refreshTimer(TimerTaskPtr& task);
+    void addTimerTask(TimerTaskPtr task);
+    void refreshTimer(TimerTaskPtr task);
     void execEarliestTimerTask();
-    TimerTaskPtr createTimerTask() { return _timer_task_pool.createObject(); }
+    
+    TimerTaskPtr createTimerTask() { 
+        return &(_timer_task_pool.createInstrance());
+    }
 
-    bool TimerTaskComp(TimerTaskPtr& a, TimerTaskPtr& b) {
+    bool TimerTaskComp(TimerTaskPtr a, TimerTaskPtr b) {
         return (a->expect_time.it_value.tv_sec == b->expect_time.it_value.tv_sec ? 
                 a->expect_time.it_value.tv_usec >= b->expect_time.it_value.tv_usec :
                 a->expect_time.it_value.tv_sec >= b->expect_time.it_value.tv_sec);
     }
 
-    bool TimerTaskEarlierComp(TimerTaskPtr& a, TimerTaskPtr& b) {
-        return TimerTaskComp(a, b);
+    bool TimerTaskEarlierComp(TimerTaskPtr a, TimerTaskPtr b) {
+        return !TimerTaskComp(a, b);
     }
     
-
     int32_t _epollfd;
     int32_t _eventfd;
     int32_t _timerfd;
