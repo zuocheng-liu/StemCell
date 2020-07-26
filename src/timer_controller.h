@@ -8,17 +8,19 @@
 #include <future>
 #include <functional>
 
+#include <sys/timerfd.h>
 #include <time.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include "spinlock.h"
+#include "object_pool.hpp"
 
 namespace StemCell {
 
 struct TimerTask {
     std::function<void()> fun;
-    struct itimerspec interval;
+    long interval;
     struct itimerspec create_time;
     struct itimerspec expect_time;
 };
@@ -39,6 +41,7 @@ public:
 
     bool init(); 
 
+    template<class F, class... Args>
     auto delayProcess(int64_t delay_time, F&& f, Args&&... args) 
         -> std::future<typename std::result_of<F(Args...)>::type>;
     //auto cycleProcess(int64_t term, F&& f, Args&&... args) 
@@ -53,16 +56,16 @@ private:
     void execEarliestTimerTask();
     
     TimerTaskPtr createTimerTask() { 
-        return &(_timer_task_pool.createInstrance());
+        return &(_timer_task_pool.createInstance());
     }
 
-    bool TimerTaskComp(TimerTaskPtr a, TimerTaskPtr b) {
+    static bool TimerTaskComp(TimerTaskPtr a, TimerTaskPtr b) {
         return (a->expect_time.it_value.tv_sec == b->expect_time.it_value.tv_sec ? 
-                a->expect_time.it_value.tv_usec >= b->expect_time.it_value.tv_usec :
+                a->expect_time.it_value.tv_nsec >= b->expect_time.it_value.tv_nsec :
                 a->expect_time.it_value.tv_sec >= b->expect_time.it_value.tv_sec);
     }
 
-    bool TimerTaskEarlierComp(TimerTaskPtr a, TimerTaskPtr b) {
+    static bool TimerTaskEarlierComp(TimerTaskPtr a, TimerTaskPtr b) {
         return !TimerTaskComp(a, b);
     }
     
@@ -88,7 +91,8 @@ auto TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args)
     std::future<return_type> res = task->get_future();
     
     TimerTaskPtr timer_task = createTimerTask();
-    timer_task->fun = [task](){ (*task)(); }
+    timer_task->interval = delay_time;
+    timer_task->fun = [task](){ (*task)(); };
     addTimerTask(timer_task);
     return res;
 }

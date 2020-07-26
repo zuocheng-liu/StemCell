@@ -5,6 +5,7 @@ using namespace StemCell;
 
 
 int main() {
+    try {
     TimerController tc;
     tc.init();
     tc.delayProcess(1000 * 2, []() {
@@ -16,4 +17,7 @@ int main() {
     sleep(10);
     cout << "sleep 10 sec, complate!" << endl;
     return 0;
+    } catch (exception& e) {
+        cout << "error:" << e.what();
+    }
 }
