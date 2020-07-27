@@ -5,19 +5,22 @@ using namespace StemCell;
 
 
 int main() {
+    srand((unsigned)time(NULL));
     try {
-    TimerController tc;
-    tc.init();
-    tc.delayProcess(1000 * 2, []() {
-            cout << "sleep 2 sec" << endl;
-            });
-    tc.delayProcess(1000 * 3, []() {
-            cout << "sleep 3 sec" << endl;
-            });
-    sleep(10);
-    cout << "sleep 10 sec, complate!" << endl;
-    return 0;
+        TimerController tc;
+        tc.init();
+        for (int i = 0; i < 1000; ++i) {
+            auto seed = rand() % 8000;
+            tc.delayProcess(seed, [=]() { cout << "seed:" << seed << endl; });
+        }
+        
+        
+        sleep(10);
+        tc.stop();
+        sleep(1);
+        cout << "tc stoped!" << endl;
     } catch (exception& e) {
         cout << "error:" << e.what();
     }
+    return 0;
 }
