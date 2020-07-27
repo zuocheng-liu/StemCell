@@ -23,7 +23,8 @@ struct TimerTask {
     long interval;
     struct itimerspec create_time;
     struct itimerspec expect_time;
-    std::function<void()> fun;
+    std::queue< std::function<void()> > tasks;
+    // std::function<void()> fun;
 
     void reset() {
         interval = 0;
@@ -125,11 +126,11 @@ auto TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args)
     std::future<return_type> res = task->get_future();
     TimerTaskPtr timer_task = createTimerTask();
     timer_task->interval = delay_time;
-    timer_task->fun = [task](){ (*task)(); };
+    timer_task->tasks.emplace([task](){ (*task)(); });
     addTimerTask(timer_task);
     return res;
 }
-
+/*
 template<class F, class... Args>
 auto TimerController::cycleProcess(int64_t interval, F&& f, Args&&... args) 
     -> std::future<typename std::result_of<F(Args...)>::type> {
@@ -144,10 +145,10 @@ auto TimerController::cycleProcess(int64_t interval, F&& f, Args&&... args)
     
     TimerTaskPtr timer_task = createTimerTask();
     timer_task->interval = interval;
-    timer_task->fun = [task](){ (*task)(); };
+    timer_task->tasks.emplace([task](){ (*task)(); });
     addTimerTask(timer_task);
     return res;
 }
-
+*/
 } // end namespace StemCell
 #endif

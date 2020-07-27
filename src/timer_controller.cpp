@@ -219,7 +219,11 @@ void TimerController::execEarliestTimerTask() {
     TimerTaskPtr earliestTimerTask = _timer_task_heap.front();
     pop_heap(_timer_task_heap.begin(), _timer_task_heap.end(), TimerTaskComp);
     _timer_task_heap.pop_back();
-    earliestTimerTask->fun();
+    // earliestTimerTask->fun();
+    std::function<void()> task;
+    task = std::move(earliestTimerTask->tasks.front());
+    earliestTimerTask->tasks.pop();
+    task();
     if (!_timer_task_heap.empty()) { 
         earliestTimerTask = _timer_task_heap.front();
         refreshTimer(earliestTimerTask);
