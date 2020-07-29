@@ -60,11 +60,9 @@ public:
             std::shared_ptr<TimerEvent> te = std::make_shared<TimerEvent>(timeout_threshold, callback_func, args, this);
             event_map.insert(std::make_pair(te->id, te));
             event_queue.push(te);
-            VLOG(1) << "event_recycle_pool is empty, new one: " << te->id;
         } else {
             std::shared_ptr<TimerEvent> te = event_recycle_pool.front();
             te->assign(timeout_threshold, callback_func, args, this); 
-            VLOG(1) << "get one ev in recycle_pool : " << te->id;
             event_queue.push(te);
             event_recycle_pool.pop();
         }
@@ -76,20 +74,17 @@ public:
         // VLOG_APP(INFO) << "spinlock:" << (int64_t)&_lock;
         auto it = event_map.find(te_id);
         if (it == event_map.end()) {
-            VLOG_APP(ERROR) << "TimerEvent is not existed! " << te_id;
             return;
         }
         event_recycle_pool.push(it->second);
     }
 
     void loop() {
-        VLOG(1) << "start loop";   
         event_base_dispatch(event_base_ptr_);
     }
 
     static void Callback(int fd, short event, void *args) {
         TimerEvent *te =  (TimerEvent *)args;
-        VLOG(1) << "Timer callback! taskid:" << te->args;   
         te->callback(te->args);
         te->timer->recycleTimerEvent(te->id);
         te->timer->custTimerEvent();
@@ -109,9 +104,7 @@ private:
     
     static void KeepTimer(int fd, short event, void *args) {
         Timer *te = (Timer *)args;
-        VLOG(1) << "keep timer!repeat it!";   
         if (!te->keep_ev) {
-            VLOG_APP(INFO) << "keep timer ev is null, new it!";   
            te->keep_ev = event_new(te->event_base_ptr_, -1, 0, KeepTimer, te);
         }
         struct timeval tv;

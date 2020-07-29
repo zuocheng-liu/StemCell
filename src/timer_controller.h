@@ -8,7 +8,7 @@
 #include <future>
 #include <functional>
 #include <thread>
-#include <cstring>
+#include <iostream>
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
@@ -20,16 +20,23 @@
 namespace StemCell {
 
 struct TimerTask {
+    bool is_cycle;
     long interval;
-    struct itimerspec create_time;
-    struct itimerspec expect_time;
-    std::queue< std::function<void()> > tasks;
-    // std::function<void()> fun;
+    struct timespec create_time;
+    struct timespec expect_time;
+    std::function<void()> fun;
+    
+    TimerTask() : 
+        is_cycle(false), 
+        interval(0), 
+        create_time({0}), 
+        expect_time({0}) {}
 
     void reset() {
+        is_cycle = false;
         interval = 0;
-        bzero(&create_time, sizeof(struct itimerspec));
-        bzero(&expect_time, sizeof(struct itimerspec));
+        create_time = {0};
+        expect_time = {0};
     }
 };
 
@@ -50,31 +57,29 @@ public:
         _eventfd(0), 
         _timerfd(0), 
         _stop(true), 
-        _initialized(false), 
-        _loop_thread(nullptr) {}
+        _initialized(false) {}
 
     ~TimerController() { 
         stop();
         close();
-        if (_loop_thread)  _loop_thread->join();
+        if (_loop_thread.joinable()) _loop_thread.join();
     }
 
     bool init(); 
     void stop() { 
         if (_stop) return;
+        _stop = true; 
         eventfd_t wdata = EVENT_STOP;
         if(eventfd_write(_eventfd, wdata) < 0) {
             throw std::runtime_error("failed to writer eventfd");
         }
-        _stop = true; 
+        if (_loop_thread.joinable()) _loop_thread.join();
     }
 
     template<class F, class... Args>
-    auto delayProcess(int64_t delay_time, F&& f, Args&&... args)
-        -> std::future<typename std::result_of<F(Args...)>::type>;
+    void delayProcess(int64_t delay_time, F&& f, Args&&... args);
     template<class F, class... Args>
-    auto cycleProcess(int64_t interval, F&& f, Args&&... args) 
-        -> std::future<typename std::result_of<F(Args...)>::type>;
+    void  cycleProcess(int64_t interval, F&& f, Args&&... args);
 
 private:
     
@@ -109,46 +114,46 @@ private:
     std::queue<TimerTaskPtr> _timer_task_queue;
     std::vector<TimerTaskPtr> _timer_task_heap;
     TimerTaskPool _timer_task_pool;
-    std::shared_ptr<std::thread> _loop_thread;
+    std::thread _loop_thread;
 };
 
 // add new work item to the timer heap
 template<class F, class... Args>
-auto TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args)
-    -> std::future<typename std::result_of<F(Args...)>::type> {
+void TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
     }
+    if (delay_time < 0) {
+        throw std::runtime_error("delay_time is less than zero!");
+    }
     using return_type = typename std::result_of<F(Args...)>::type;
-
-    auto task = std::make_shared< std::packaged_task<return_type()> >(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...));
-    std::future<return_type> res = task->get_future();
+    std::function<return_type()> task = 
+        std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     TimerTaskPtr timer_task = createTimerTask();
     timer_task->interval = delay_time;
-    timer_task->tasks.emplace([task](){ (*task)(); });
+    timer_task->create_time = {0};
+    timer_task->fun = [task](){ task(); };
     addTimerTask(timer_task);
-    return res;
 }
-/*
+
 template<class F, class... Args>
-auto TimerController::cycleProcess(int64_t interval, F&& f, Args&&... args) 
-    -> std::future<typename std::result_of<F(Args...)>::type> {
+void TimerController::cycleProcess(int64_t interval, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
     }
+    if (interval < 0) {
+        throw std::runtime_error("interval is less than zero!");
+    }
     using return_type = typename std::result_of<F(Args...)>::type;
-
-    auto task = std::make_shared< std::packaged_task<return_type()> >(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...));
-    std::future<return_type> res = task->get_future();
-    
+    std::function<return_type()> task = 
+        std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     TimerTaskPtr timer_task = createTimerTask();
+    timer_task->is_cycle = true;
     timer_task->interval = interval;
-    timer_task->tasks.emplace([task](){ (*task)(); });
+    timer_task->create_time = {0};
+    timer_task->fun = [task](){ task(); };
     addTimerTask(timer_task);
-    return res;
 }
-*/
+
 } // end namespace StemCell
 #endif

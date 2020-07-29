@@ -11,9 +11,9 @@ using namespace StemCell;
 using namespace std;
 
 static bool TimerTaskComp(TimerTaskPtr a, TimerTaskPtr b) {
-    return (a->expect_time.it_value.tv_sec == b->expect_time.it_value.tv_sec ? 
-            a->expect_time.it_value.tv_nsec > b->expect_time.it_value.tv_nsec :
-            a->expect_time.it_value.tv_sec > b->expect_time.it_value.tv_sec);
+    return (a->expect_time.tv_sec == b->expect_time.tv_sec ? 
+            a->expect_time.tv_nsec > b->expect_time.tv_nsec :
+            a->expect_time.tv_sec > b->expect_time.tv_sec);
 }
 
 static bool TimerTaskEarlierComp(TimerTaskPtr a, TimerTaskPtr b) {
@@ -39,17 +39,15 @@ bool TimerController::init() {
         throw std::runtime_error("failed to create timerfd");
     }
 
-    struct timespec now;
-    if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
-        throw std::runtime_error("failed to clock_gettime");
-    }
-    struct itimerspec new_value;
-    new_value.it_value.tv_sec = 1;
-    new_value.it_value.tv_nsec = now.tv_nsec;
-    new_value.it_interval.tv_sec = 1;
-    new_value.it_interval.tv_nsec = 0;
+    struct itimerspec new_itimer;
+    new_itimer.it_value.tv_sec = 1;
+    new_itimer.it_value.tv_nsec = 0;
+    // it_interval cannot be zero, in case of _timerfd being closed
+    // new_itimer.it_interval.tv_sec = 0xFFFFFFFF; // 136 years? haha!
+    new_itimer.it_interval.tv_sec = 0;
+    new_itimer.it_interval.tv_nsec = 1000000;
 
-    if (timerfd_settime(_timerfd, 0, &new_value, NULL) < 0) {
+    if (timerfd_settime(_timerfd, 0, &new_itimer, NULL) < 0) {
         stringstream msg;
         msg << "failed to timerfd_settime when init.  errno: " << errno 
            << " err:" << strerror(errno);
@@ -85,7 +83,7 @@ bool TimerController::init() {
     
     // init loop thread
     TimerController *tc = this;
-    _loop_thread = make_shared<thread>([tc]() mutable { tc->loop(); });
+    _loop_thread = thread([tc]() mutable { tc->loop(); });
     
     _initialized = true;
     return true;
@@ -123,20 +121,24 @@ void TimerController::loop() {
 }
 
 void TimerController::addTimerTask(TimerTaskPtr timer_task) {
-    struct timespec now;
-    if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
-        throw std::runtime_error("failed to clock_gettime");
+    struct timespec base_time;
+    struct timespec& create_time = timer_task->create_time;
+    struct timespec& expect_time = timer_task->expect_time;
+    if (0 == create_time.tv_sec && 0 == create_time.tv_nsec) {
+        if (clock_gettime(CLOCK_REALTIME, &base_time) < 0) {
+            throw std::runtime_error("failed to clock_gettime");
+        }
+        create_time.tv_sec = base_time.tv_nsec;
+        create_time.tv_nsec = base_time.tv_nsec;
+    } else {
+        base_time = expect_time;
     }
-    timer_task->create_time.it_value.tv_sec = now.tv_nsec;
-    timer_task->create_time.it_value.tv_nsec = now.tv_nsec;
-    
     int64_t delay_time = timer_task->interval;
     int64_t second = delay_time / 1000;
     int64_t narosecond = (delay_time % 1000) * 1000000;
-    struct itimerspec& expect_time = timer_task->expect_time;
-    int64_t delta = (narosecond + now.tv_nsec) / 1000000000;
-    expect_time.it_value.tv_sec = now.tv_sec + second + delta;
-    expect_time.it_value.tv_nsec = (narosecond + now.tv_nsec) % 1000000000;
+    int64_t delta = (narosecond + base_time.tv_nsec) / 1000000000;
+    expect_time.tv_sec = base_time.tv_sec + second + delta;
+    expect_time.tv_nsec = (narosecond + base_time.tv_nsec) % 1000000000;
     {
         std::lock_guard<Spinlock> locker(_lock);
         _timer_task_queue.push(timer_task);
@@ -149,19 +151,20 @@ void TimerController::addTimerTask(TimerTaskPtr timer_task) {
 
 void TimerController::refreshTimer(TimerTaskPtr task) {
     struct timespec now;
+    struct timespec& expect_time = task->expect_time;
+    struct itimerspec new_itimer;
     if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
         throw std::runtime_error("failed to clock_gettime");
     }
-    struct itimerspec& expect_time = task->expect_time;
-    struct itimerspec new_value;
-    if (expect_time.it_value.tv_sec < now.tv_sec || 
-            (expect_time.it_value.tv_sec == now.tv_sec 
-             && expect_time.it_value.tv_nsec <= now.tv_nsec)) {
-        new_value.it_value.tv_sec = 0;
-        new_value.it_value.tv_nsec = 1;
+    // if task has been timeout , exec it immediately!
+    if (expect_time.tv_sec < now.tv_sec || 
+            (expect_time.tv_sec == now.tv_sec 
+             && expect_time.tv_nsec <= now.tv_nsec)) {
+        new_itimer.it_value.tv_sec = 0;
+        new_itimer.it_value.tv_nsec = 1;
     } else {
-        int64_t sec = expect_time.it_value.tv_sec - now.tv_sec;
-        int64_t nsec = expect_time.it_value.tv_nsec - now.tv_nsec;
+        int64_t sec = expect_time.tv_sec - now.tv_sec;
+        int64_t nsec = expect_time.tv_nsec - now.tv_nsec;
         if (nsec < 0) {
             --sec;
             nsec = 1000000000 + nsec;
@@ -170,13 +173,14 @@ void TimerController::refreshTimer(TimerTaskPtr task) {
         int64_t delay_time = task->interval;
         int64_t second = delay_time / 1000;
         int64_t narosecond = (delay_time % 1000) * 1000000;
-        new_value.it_value.tv_sec = sec;
-        new_value.it_value.tv_nsec = nsec;
+        new_itimer.it_value.tv_sec = sec;
+        new_itimer.it_value.tv_nsec = nsec;
     }
-    
-    new_value.it_interval.tv_sec = 1;
-    new_value.it_interval.tv_nsec = 0;
-    if (timerfd_settime(_timerfd, 0, &new_value, NULL) < 0) {
+    // it_interval cannot be zero, in case of _timerfd being closed
+    // new_itimer.it_interval.tv_sec = 0xFFFFFFFF; // 136 years? haha!
+    new_itimer.it_interval.tv_sec = 0;
+    new_itimer.it_interval.tv_nsec = 1000000;
+    if (timerfd_settime(_timerfd, 0, &new_itimer, NULL) < 0) {
         throw std::runtime_error("failed to timerfd_settime when refresh");
     }
     
@@ -219,15 +223,15 @@ void TimerController::execEarliestTimerTask() {
     TimerTaskPtr earliestTimerTask = _timer_task_heap.front();
     pop_heap(_timer_task_heap.begin(), _timer_task_heap.end(), TimerTaskComp);
     _timer_task_heap.pop_back();
-    // earliestTimerTask->fun();
-    std::function<void()> task;
-    task = std::move(earliestTimerTask->tasks.front());
-    earliestTimerTask->tasks.pop();
-    task();
-    if (!_timer_task_heap.empty()) { 
-        earliestTimerTask = _timer_task_heap.front();
-        refreshTimer(earliestTimerTask);
+    earliestTimerTask->fun();
+    if (earliestTimerTask->is_cycle) {
+        addTimerTask(earliestTimerTask);
+    } else {
+        earliestTimerTask->reset();
+        _timer_task_pool.recycle(earliestTimerTask);
     }
-    earliestTimerTask->reset();
-    _timer_task_pool.recycle(earliestTimerTask);
+    
+    if (!_timer_task_heap.empty()) { 
+        refreshTimer(_timer_task_heap.front());
+    }
 }
