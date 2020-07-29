@@ -77,9 +77,9 @@ public:
     }
 
     template<class F, class... Args>
-    void delayProcess(int64_t delay_time, F&& f, Args&&... args);
+    void delayProcess(uint32_t delay_time, F&& f, Args&&... args);
     template<class F, class... Args>
-    void  cycleProcess(int64_t interval, F&& f, Args&&... args);
+    void  cycleProcess(uint32_t interval, F&& f, Args&&... args);
 
 private:
     
@@ -119,7 +119,7 @@ private:
 
 // add new work item to the timer heap
 template<class F, class... Args>
-void TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args) {
+void TimerController::delayProcess(uint32_t delay_time, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
     }
@@ -137,12 +137,9 @@ void TimerController::delayProcess(int64_t delay_time, F&& f, Args&&... args) {
 }
 
 template<class F, class... Args>
-void TimerController::cycleProcess(int64_t interval, F&& f, Args&&... args) {
+void TimerController::cycleProcess(uint32_t interval, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
-    }
-    if (interval < 0) {
-        throw std::runtime_error("interval is less than zero!");
     }
     using return_type = typename std::result_of<F(Args...)>::type;
     std::function<return_type()> task = 
