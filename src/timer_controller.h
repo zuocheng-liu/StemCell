@@ -123,7 +123,7 @@ void TimerController::delayProcess(uint32_t delay_time, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
     }
-    if (delay_time < 0) {
+    if (delay_time <= 0) {
         throw std::runtime_error("delay_time is less than zero!");
     }
     using return_type = typename std::result_of<F(Args...)>::type;
@@ -140,6 +140,9 @@ template<class F, class... Args>
 void TimerController::cycleProcess(uint32_t interval, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
+    }
+    if (interval <= 0) {
+        throw std::runtime_error("interval is below or equal to zero!");
     }
     using return_type = typename std::result_of<F(Args...)>::type;
     std::function<return_type()> task = 
