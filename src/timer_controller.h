@@ -123,13 +123,11 @@ void TimerController::delayProcess(uint32_t delay_time, F&& f, Args&&... args) {
     if(_stop) { 
         throw std::runtime_error("TimerController is stoped!");
     }
-    if (delay_time <= 0) {
-        throw std::runtime_error("delay_time is less than zero!");
-    }
     using return_type = typename std::result_of<F(Args...)>::type;
     std::function<return_type()> task = 
         std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     TimerTaskPtr timer_task = createTimerTask();
+    timer_task->is_cycle = false;
     timer_task->interval = delay_time;
     timer_task->create_time = {0};
     timer_task->fun = [task](){ task(); };
